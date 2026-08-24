@@ -1,0 +1,54 @@
+[package]
+categories = ["asynchronous", "network-programming", "web-programming"]
+description = "Framework-neutral HTTP body streaming formats: JSON/CSV/Protobuf/Arrow encode and decode"
+edition = "2021"
+rust-version = "1.85"
+homepage = "https://github.com/abdolence/http-streams-core-rs"
+repository = "https://github.com/abdolence/http-streams-core-rs"
+documentation = "https://docs.rs/http-streams-core"
+keywords = ["http", "web", "stream", "streaming"]
+license = "Apache-2.0"
+name = "http-streams-core"
+readme = "README.md"
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
+version = "0.1.0"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[lib]
+name = "http_streams_core"
+path = "src/lib.rs"
+
+[dependencies]
+bytes = "1"
+futures = "0.3"
+http = "1"
+tokio-util = { version = "0.7", features = ["io", "codec"] }
+serde = { version = "1", features = ["serde_derive"], optional = true }
+serde_json = { version = "1", optional = true }
+csv = { version = "1.3", optional = true }
+# The incremental, allocation-free CSV parser underneath `csv`; already in the tree via it.
+csv-core = { version = "0.1", optional = true }
+prost = { version = "0.14", optional = true }
+arrow = { version = "59", features = ["ipc"], optional = true }
+# 0.1.30 for `enabled!`
+tracing = { version = "0.1.30", optional = true, default-features = false, features = ["std"] }
+
+[features]
+default = []
+json = ["dep:serde", "dep:serde_json"]
+csv = ["dep:csv", "dep:csv-core", "dep:serde"]
+protobuf = ["dep:prost"]
+arrow = ["dep:arrow"]
+text = []
+tracing = ["dep:tracing"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["serde_derive"] }
+serde_json = "1"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

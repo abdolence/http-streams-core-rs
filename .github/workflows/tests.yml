@@ -1,0 +1,20 @@
+name: tests & formatting
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+    types: [opened]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_protected && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+      - run: cargo fmt -- --check && cargo clippy --all-features -- -Dwarnings && cargo test --all-features
