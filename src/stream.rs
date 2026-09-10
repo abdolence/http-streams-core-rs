@@ -113,6 +113,7 @@ where
             }
         }
     })
+    .fuse()
 }
 
 /// Decode a stream of body chunks into a stream of items.
