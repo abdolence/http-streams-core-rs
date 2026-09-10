@@ -37,6 +37,10 @@ struct EncodeState<S, ENC> {
 ///
 /// Empty chunks are swallowed rather than yielded, so a format with no prologue or epilogue
 /// does not emit zero-length frames.
+///
+/// The returned stream is fused, so an extra poll after the end yields `None` rather than
+/// panicking. Bodies are polled once more after their last frame, and errors reach the
+/// terminal phase early, which makes the over-poll ordinary rather than exceptional.
 pub fn encode_stream<'b, S, T, ENC>(
     stream: S,
     encoder: ENC,
@@ -113,6 +117,8 @@ where
             }
         }
     })
+    // `unfold` drops its state when the closure returns `None` and panics on the next poll, so
+    // the fuse is what makes the terminal state repeatable.
     .fuse()
 }
 
@@ -239,5 +245,28 @@ mod tests {
         let (bytes, errors) = collect(encode_stream(source, Bracketed { fail_at: None })).await;
         assert_eq!(String::from_utf8(bytes).unwrap(), "[1");
         assert_eq!(errors, 1);
+    }
+
+    /// A body outlives its own last frame: hyper polls it again to learn whether trailers
+    /// follow, because `is_end_stream` cannot promise otherwise. The terminal state has to
+    /// survive being asked more than once.
+    #[tokio::test]
+    async fn polling_after_completion_yields_none() {
+        let source = futures::stream::iter(vec![Ok(1u32), Ok(2)]);
+        let mut stream = Box::pin(encode_stream(source, Bracketed { fail_at: None }));
+        while stream.next().await.is_some() {}
+        assert!(stream.next().await.is_none());
+        assert!(stream.next().await.is_none());
+    }
+
+    /// An encoder error skips the epilogue, so the terminal state arrives one poll after the
+    /// error rather than at the end of the source.
+    #[tokio::test]
+    async fn polling_after_an_error_yields_none() {
+        let source = futures::stream::iter(vec![Ok(1u32), Ok(2), Ok(3)]);
+        let mut stream = Box::pin(encode_stream(source, Bracketed { fail_at: Some(1) }));
+        while stream.next().await.is_some() {}
+        assert!(stream.next().await.is_none());
+        assert!(stream.next().await.is_none());
     }
 }
